@@ -1,0 +1,2554 @@
+# Source: opentelemetry-demo/charts/grafana/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+automountServiceAccountToken: false
+metadata:
+  labels:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/instance: opentelemetry-demo
+    app.kubernetes.io/version: "11.5.2"
+  name: grafana
+---
+# Source: opentelemetry-demo/charts/grafana/templates/secret.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: grafana
+  labels:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/instance: opentelemetry-demo
+    app.kubernetes.io/version: "11.5.2"
+type: Opaque
+data:
+  
+  admin-user: "YWRtaW4="
+  admin-password: "YWRtaW4="
+  ldap-toml: ""
+---
+# Source: opentelemetry-demo/charts/grafana/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana
+  labels:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/instance: opentelemetry-demo
+    app.kubernetes.io/version: "11.5.2"
+data:
+  
+  plugins: grafana-opensearch-datasource
+  grafana.ini: |
+    [analytics]
+    check_for_updates = true
+    [auth]
+    disable_login_form = true
+    [auth.anonymous]
+    enabled = true
+    org_name = Main Org.
+    org_role = Admin
+    [grafana_net]
+    url = https://grafana.net
+    [log]
+    mode = console
+    [paths]
+    data = /var/lib/grafana/
+    logs = /var/log/grafana
+    plugins = /var/lib/grafana/plugins
+    provisioning = /etc/grafana/provisioning
+    [server]
+    domain = ''
+    root_url = %(protocol)s://%(domain)s:%(http_port)s/grafana
+    serve_from_sub_path = true
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+    - editable: true
+      isDefault: true
+      jsonData:
+        exemplarTraceIdDestinations:
+        - datasourceUid: webstore-traces
+          name: trace_id
+        - name: trace_id
+          url: http://localhost:8080/jaeger/ui/trace/$${__value.raw}
+          urlDisplayLabel: View in Jaeger UI
+      name: Prometheus
+      type: prometheus
+      uid: webstore-metrics
+      url: http://prometheus:9090
+    - editable: true
+      isDefault: false
+      name: Jaeger
+      type: jaeger
+      uid: webstore-traces
+      url: http://jaeger-query:16686/jaeger/ui
+    - access: proxy
+      editable: true
+      isDefault: false
+      jsonData:
+        database: otel
+        flavor: opensearch
+        logLevelField: severity.text.keyword
+        logMessageField: body
+        pplEnabled: true
+        timeField: observedTimestamp
+        version: 2.18.0
+      name: OpenSearch
+      type: grafana-opensearch-datasource
+      uid: webstore-logs
+      url: http://opensearch:9200/
+  dashboardproviders.yaml: |
+    apiVersion: 1
+    providers:
+    - disableDeletion: false
+      editable: true
+      folder: ""
+      name: default
+      options:
+        path: /var/lib/grafana/dashboards/default
+      orgId: 1
+      type: file
+---
+# Source: opentelemetry-demo/charts/grafana/templates/clusterrole.yaml
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  labels:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/instance: opentelemetry-demo
+    app.kubernetes.io/version: "11.5.2"
+  name: grafana-clusterrole
+rules: []
+---
+# Source: opentelemetry-demo/charts/grafana/templates/clusterrolebinding.yaml
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: grafana-clusterrolebinding
+  labels:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/instance: opentelemetry-demo
+    app.kubernetes.io/version: "11.5.2"
+subjects:
+  - kind: ServiceAccount
+    name: grafana
+    namespace: otel-demo-test
+roleRef:
+  kind: ClusterRole
+  name: grafana-clusterrole
+  apiGroup: rbac.authorization.k8s.io
+---
+# Source: opentelemetry-demo/charts/grafana/templates/role.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: grafana
+  labels:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/instance: opentelemetry-demo
+    app.kubernetes.io/version: "11.5.2"
+rules: []
+---
+# Source: opentelemetry-demo/charts/grafana/templates/rolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: grafana
+  labels:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/instance: opentelemetry-demo
+    app.kubernetes.io/version: "11.5.2"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: grafana
+subjects:
+- kind: ServiceAccount
+  name: grafana
+  namespace: otel-demo-test
+---
+# Source: opentelemetry-demo/charts/grafana/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  labels:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/instance: opentelemetry-demo
+    app.kubernetes.io/version: "11.5.2"
+spec:
+  type: ClusterIP
+  ports:
+    - name: service
+      port: 80
+      protocol: TCP
+      targetPort: 3000
+  selector:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/instance: opentelemetry-demo
+---
+# Source: opentelemetry-demo/charts/grafana/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  labels:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/instance: opentelemetry-demo
+    app.kubernetes.io/version: "11.5.2"
+spec:
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: grafana
+      app.kubernetes.io/instance: opentelemetry-demo
+  strategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: grafana
+        app.kubernetes.io/instance: opentelemetry-demo
+        app.kubernetes.io/version: "11.5.2"
+      annotations:
+        checksum/config: 99cca986c6d5f6511900d815ee5a70d0c284aeb70af56fb96108c7bf456eff87
+        checksum/sc-dashboard-provider-config: e70bf6a851099d385178a76de9757bb0bef8299da6d8443602590e44f05fdf24
+        checksum/secret: bed677784356b2af7fb0d87455db21f077853059b594101a4f6532bfbd962a7f
+        kubectl.kubernetes.io/default-container: grafana
+    spec:
+      
+      serviceAccountName: grafana
+      automountServiceAccountToken: true
+      shareProcessNamespace: false
+      securityContext:
+        fsGroup: 472
+        runAsGroup: 472
+        runAsNonRoot: true
+        runAsUser: 472
+      enableServiceLinks: true
+      containers:
+        - name: grafana
+          image: "docker.io/grafana/grafana:11.5.2"
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - name: config
+              mountPath: "/etc/grafana/grafana.ini"
+              subPath: grafana.ini
+            - name: storage
+              mountPath: "/var/lib/grafana"
+            - name: dashboards-default
+              mountPath: "/var/lib/grafana/dashboards/default"
+            - name: config
+              mountPath: "/etc/grafana/provisioning/datasources/datasources.yaml"
+              subPath: "datasources.yaml"
+            - name: config
+              mountPath: "/etc/grafana/provisioning/dashboards/dashboardproviders.yaml"
+              subPath: "dashboardproviders.yaml"
+          ports:
+            - name: grafana
+              containerPort: 3000
+              protocol: TCP
+            - name: gossip-tcp
+              containerPort: 9094
+              protocol: TCP
+            - name: gossip-udp
+              containerPort: 9094
+              protocol: UDP
+            - name: profiling
+              containerPort: 6060
+              protocol: TCP
+          env:
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: GF_SECURITY_ADMIN_USER
+              valueFrom:
+                secretKeyRef:
+                  name: grafana
+                  key: admin-user
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: grafana
+                  key: admin-password
+            - name: GF_INSTALL_PLUGINS
+              valueFrom:
+                configMapKeyRef:
+                  name: grafana
+                  key: plugins
+            - name: GF_PATHS_DATA
+              value: /var/lib/grafana/
+            - name: GF_PATHS_LOGS
+              value: /var/log/grafana
+            - name: GF_PATHS_PLUGINS
+              value: /var/lib/grafana/plugins
+            - name: GF_PATHS_PROVISIONING
+              value: /etc/grafana/provisioning
+          livenessProbe:
+            failureThreshold: 10
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 60
+            timeoutSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+          resources:
+            limits:
+              memory: 150Mi
+      volumes:
+        - name: config
+          configMap:
+            name: grafana
+        - name: dashboards-default
+          configMap:
+            name: grafana-dashboards
+        - name: storage
+          emptyDir: {}
+---
+# Source: opentelemetry-demo/templates/grafana-dashboards.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+  labels:
+    
+    app.kubernetes.io/instance: opentelemetry-demo
+    app.kubernetes.io/version: "2.0.1"
+    app.kubernetes.io/part-of: opentelemetry-demo
+data:
+  
+  demo-dashboard.json: |-
+    {
+      "annotations": {
+        "list": [
+          {
+            "builtIn": 1,
+            "datasource": {
+              "type": "grafana",
+              "uid": "-- Grafana --"
+            },
+            "enable": true,
+            "hide": true,
+            "iconColor": "rgba(0, 211, 255, 1)",
+            "name": "Annotations & Alerts",
+            "target": {
+              "limit": 100,
+              "matchAny": false,
+              "tags": [],
+              "type": "dashboard"
+            },
+            "type": "dashboard"
+          }
+        ]
+      },
+      "editable": true,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 1,
+      "id": 2,
+      "links": [],
+      "panels": [
+        {
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 3,
+            "w": 24,
+            "x": 0,
+            "y": 0
+          },
+          "id": 21,
+          "options": {
+            "code": {
+              "language": "plaintext",
+              "showLineNumbers": false,
+              "showMiniMap": false
+            },
+            "content": "This dashboard shows RED metrics for the selected service, as generated by the spanmetrics connector in the OpenTelemetry Collector.\nIf the selected service emits logs, the logs will also be displayed.\nCustom metrics generated by some services are also displayed. \n<br/>\nChart panels may require 5 minutes after the Demo is started before rendering data.",
+            "mode": "html"
+          },
+          "pluginVersion": "11.5.2",
+          "title": "",
+          "type": "text"
+        },
+        {
+          "collapsed": false,
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 3
+          },
+          "id": 14,
+          "panels": [],
+          "title": "Spanmetrics (RED metrics)",
+          "type": "row"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "reqps"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 0,
+            "y": 4
+          },
+          "id": 12,
+          "interval": "2m",
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "pluginVersion": "11.5.2",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "webstore-metrics"
+              },
+              "editorMode": "code",
+              "expr": "sum by (span_name) (rate(traces_span_metrics_duration_milliseconds_count{service_name=\"${service}\"}[$__rate_interval]))",
+              "legendFormat": "{{ span_name }}",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Requests Rate by Span Name",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "description": "",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 8,
+            "y": 4
+          },
+          "id": 10,
+          "interval": "2m",
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "pluginVersion": "11.5.2",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "webstore-metrics"
+              },
+              "editorMode": "code",
+              "expr": "sum by (span_name) (rate(traces_span_metrics_calls_total{status_code=\"STATUS_CODE_ERROR\", service_name=\"${service}\"}[$__rate_interval]))",
+              "interval": "",
+              "legendFormat": "{{ span_name }}",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Error Rate by Span Name",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "description": "",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "dtdurationms"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 16,
+            "y": 4
+          },
+          "id": 2,
+          "interval": "2m",
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "pluginVersion": "11.5.2",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "webstore-metrics"
+              },
+              "editorMode": "code",
+              "exemplar": false,
+              "expr": "histogram_quantile(0.50, sum(rate(traces_span_metrics_duration_milliseconds_bucket{service_name=\"${service}\"}[$__rate_interval])) by (le, span_name))",
+              "legendFormat": "{{span_name}}",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Average Duration by Span Name",
+          "type": "timeseries"
+        },
+        {
+          "collapsed": false,
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 12
+          },
+          "id": 19,
+          "panels": [],
+          "title": "Application Log Records",
+          "type": "row"
+        },
+        {
+          "datasource": {
+            "type": "grafana-opensearch-datasource",
+            "uid": "webstore-logs"
+          },
+          "description": "",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "custom": {
+                "align": "left",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "inspect": false
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "count()"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 90
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 4,
+            "x": 0,
+            "y": 13
+          },
+          "id": 20,
+          "options": {
+            "cellHeight": "sm",
+            "footer": {
+              "countRows": false,
+              "fields": "",
+              "reducer": [
+                "sum"
+              ],
+              "show": false
+            },
+            "showHeader": true
+          },
+          "pluginVersion": "11.5.2",
+          "targets": [
+            {
+              "alias": "",
+              "bucketAggs": [
+                {
+                  "field": "severity.text.keyword",
+                  "id": "3",
+                  "settings": {
+                    "min_doc_count": "1",
+                    "order": "desc",
+                    "orderBy": "_count",
+                    "size": "0"
+                  },
+                  "type": "terms"
+                }
+              ],
+              "datasource": {
+                "type": "grafana-opensearch-datasource",
+                "uid": "webstore-logs"
+              },
+              "format": "table",
+              "metrics": [
+                {
+                  "id": "1",
+                  "type": "count"
+                }
+              ],
+              "query": "search source=otel\n| where resource.service.name=\"${service}\"\n| stats count() by severity.text",
+              "queryType": "PPL",
+              "refId": "A",
+              "timeField": "observedTimestamp"
+            }
+          ],
+          "title": "Log Records by Severity",
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {},
+                "includeByName": {},
+                "indexByName": {},
+                "renameByName": {
+                  "Count": "",
+                  "severity.text.keyword": "Severity"
+                }
+              }
+            }
+          ],
+          "type": "table"
+        },
+        {
+          "datasource": {
+            "type": "grafana-opensearch-datasource",
+            "uid": "webstore-logs"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto",
+                  "wrapText": false
+                },
+                "filterable": true,
+                "inspect": true
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "observedTimestamp"
+                },
+                "properties": []
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "body"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 386
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "severity.text"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 127
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 20,
+            "x": 4,
+            "y": 13
+          },
+          "id": 17,
+          "options": {
+            "cellHeight": "sm",
+            "footer": {
+              "countRows": false,
+              "fields": "",
+              "reducer": [
+                "sum"
+              ],
+              "show": false
+            },
+            "showHeader": true,
+            "sortBy": []
+          },
+          "pluginVersion": "11.5.2",
+          "targets": [
+            {
+              "alias": "",
+              "bucketAggs": [],
+              "datasource": {
+                "type": "grafana-opensearch-datasource",
+                "uid": "webstore-logs"
+              },
+              "format": "table",
+              "hide": false,
+              "metrics": [
+                {
+                  "id": "1",
+                  "settings": {
+                    "order": "desc",
+                    "size": "100",
+                    "useTimeRange": true
+                  },
+                  "type": "raw_data"
+                }
+              ],
+              "query": "search source=otel\n| where resource.service.name=\"${service}\"\n| sort - observedTimestamp \n| head 100",
+              "queryType": "PPL",
+              "refId": "A",
+              "timeField": "observedTimestamp"
+            }
+          ],
+          "title": "Log Records (100 recent entries)",
+          "transformations": [
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "@timestamp": true
+                },
+                "includeByName": {},
+                "indexByName": {
+                  "@timestamp": 1,
+                  "attributes.data_stream.dataset": 4,
+                  "attributes.data_stream.namespace": 5,
+                  "attributes.data_stream.type": 6,
+                  "attributes.productId": 7,
+                  "attributes.quantity": 8,
+                  "attributes.userId": 9,
+                  "body": 3,
+                  "instrumentationScope.name": 10,
+                  "observedTimestamp": 0,
+                  "resource.container.id": 11,
+                  "resource.docker.cli.cobra.command_path": 12,
+                  "resource.host.name": 13,
+                  "resource.service.name": 14,
+                  "resource.telemetry.sdk.language": 15,
+                  "resource.telemetry.sdk.name": 16,
+                  "resource.telemetry.sdk.version": 17,
+                  "severity.number": 18,
+                  "severity.text": 2,
+                  "spanId": 19,
+                  "traceId": 20
+                },
+                "renameByName": {}
+              }
+            }
+          ],
+          "type": "table"
+        },
+        {
+          "collapsed": false,
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 21
+          },
+          "id": 18,
+          "panels": [],
+          "title": "Application Metrics",
+          "type": "row"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "percent"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 22
+          },
+          "id": 6,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "pluginVersion": "11.5.2",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "webstore-metrics"
+              },
+              "editorMode": "code",
+              "expr": "rate(process_runtime_cpython_cpu_time_seconds_total{type=~\"system\"}[$__rate_interval])*100",
+              "hide": false,
+              "interval": "2m",
+              "legendFormat": "{{job}} ({{type}})",
+              "range": true,
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "webstore-metrics"
+              },
+              "editorMode": "code",
+              "expr": "rate(process_runtime_cpython_cpu_time_seconds_total{type=~\"user\"}[$__rate_interval])*100",
+              "hide": false,
+              "interval": "2m",
+              "legendFormat": "{{job}} ({{type}})",
+              "range": true,
+              "refId": "B"
+            }
+          ],
+          "title": "Python services (CPU%)",
+          "transformations": [
+            {
+              "id": "renameByRegex",
+              "options": {
+                "regex": "opentelemetry-demo/(.*)",
+                "renamePattern": "$1"
+              }
+            }
+          ],
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "bytes"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 22
+          },
+          "id": 8,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "pluginVersion": "11.5.2",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "webstore-metrics"
+              },
+              "editorMode": "code",
+              "expr": "process_runtime_cpython_memory_bytes{type=\"rss\"}",
+              "legendFormat": "{{job}}",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Python services (Memory)",
+          "transformations": [
+            {
+              "id": "renameByRegex",
+              "options": {
+                "regex": "opentelemetry-demo/(.*)",
+                "renamePattern": "$1"
+              }
+            }
+          ],
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 30
+          },
+          "id": 4,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": false
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "pluginVersion": "11.5.2",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "webstore-metrics"
+              },
+              "editorMode": "code",
+              "expr": "rate(app_recommendations_counter_total{recommendation_type=\"catalog\"}[$__rate_interval])",
+              "interval": "2m",
+              "legendFormat": "recommendations",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Recommendations Rate",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 30
+          },
+          "id": 16,
+          "interval": "2m",
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "hideZeros": false,
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "pluginVersion": "11.5.2",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "webstore-metrics"
+              },
+              "editorMode": "code",
+              "expr": "rate(otel_trace_span_processor_spans{job=\"quote\"}[2m])*120",
+              "interval": "2m",
+              "legendFormat": "{{state}}",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Quote Service batch span processor",
+          "type": "timeseries"
+        },
+        {
+          "collapsed": false,
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 38
+          },
+          "id": 23,
+          "panels": [],
+          "title": "Service Dependency",
+          "type": "row"
+        },
+        {
+          "datasource": {
+            "type": "jaeger",
+            "uid": "webstore-traces"
+          },
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 18,
+            "w": 24,
+            "x": 0,
+            "y": 39
+          },
+          "id": 22,
+          "options": {
+            "edges": {
+              "mainStatUnit": "requests"
+            },
+            "nodes": {
+              "arcs": [],
+              "mainStatUnit": ""
+            },
+            "zoomMode": "cooperative"
+          },
+          "pluginVersion": "11.5.2",
+          "targets": [
+            {
+              "datasource": {
+                "type": "jaeger",
+                "uid": "webstore-traces"
+              },
+              "queryType": "dependencyGraph",
+              "refId": "A"
+            }
+          ],
+          "title": "Service Dependency",
+          "type": "nodeGraph"
+        }
+      ],
+      "preload": false,
+      "refresh": "",
+      "schemaVersion": 40,
+      "tags": [],
+      "templating": {
+        "list": [
+          {
+            "current": {
+              "text": "frontend",
+              "value": "frontend"
+            },
+            "datasource": {
+              "type": "prometheus",
+              "uid": "webstore-metrics"
+            },
+            "definition": "traces_span_metrics_duration_milliseconds_bucket",
+            "includeAll": false,
+            "label": "Service",
+            "name": "service",
+            "options": [],
+            "query": {
+              "query": "traces_span_metrics_duration_milliseconds_bucket",
+              "refId": "PrometheusVariableQueryEditor-VariableQuery"
+            },
+            "refresh": 1,
+            "regex": "/.*service.name=\\\"([^\\\"]+)\\\".*/",
+            "sort": 1,
+            "type": "query"
+          }
+        ]
+      },
+      "time": {
+        "from": "now-15m",
+        "to": "now"
+      },
+      "timepicker": {},
+      "timezone": "",
+      "title": "Demo Dashboard",
+      "uid": "W2gX2zHVk",
+      "version": 2,
+      "weekStart": ""
+    }
+  spanmetrics-dashboard.json: |-
+    {
+      "annotations": {
+        "list": [
+          {
+            "builtIn": 1,
+            "datasource": {
+              "type": "grafana",
+              "uid": "-- Grafana --"
+            },
+            "enable": true,
+            "hide": true,
+            "iconColor": "rgba(0, 211, 255, 1)",
+            "name": "Annotations & Alerts",
+            "target": {
+              "limit": 100,
+              "matchAny": false,
+              "tags": [],
+              "type": "dashboard"
+            },
+            "type": "dashboard"
+          }
+        ]
+      },
+      "description": "Spanmetrics way of demo application view.",
+      "editable": true,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 0,
+      "id": 3,
+      "links": [],
+      "panels": [
+        {
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 2,
+            "w": 24,
+            "x": 0,
+            "y": 0
+          },
+          "id": 26,
+          "options": {
+            "code": {
+              "language": "plaintext",
+              "showLineNumbers": false,
+              "showMiniMap": false
+            },
+            "content": "This dashboard uses RED metrics generated for all services by the spanmetrics connector configured in the OpenTelemetry Collector.\n<br>\nChart panels may require 5 minutes after the Demo is started before rendering data.",
+            "mode": "html"
+          },
+          "pluginVersion": "11.4.0",
+          "title": "",
+          "type": "text"
+        },
+        {
+          "collapsed": false,
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 2
+          },
+          "id": 24,
+          "panels": [],
+          "title": "Service Level - Throughput and Latencies",
+          "type": "row"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "continuous-BlYlRd"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "blue",
+                    "value": null
+                  },
+                  {
+                    "color": "green",
+                    "value": 2
+                  },
+                  {
+                    "color": "#EAB839",
+                    "value": 64
+                  },
+                  {
+                    "color": "orange",
+                    "value": 128
+                  },
+                  {
+                    "color": "red",
+                    "value": 256
+                  }
+                ]
+              },
+              "unit": "ms"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 20,
+            "w": 12,
+            "x": 0,
+            "y": 3
+          },
+          "id": 2,
+          "interval": "5m",
+          "options": {
+            "minVizHeight": 75,
+            "minVizWidth": 75,
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "showThresholdLabels": false,
+            "showThresholdMarkers": true,
+            "sizing": "auto"
+          },
+          "pluginVersion": "11.4.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "webstore-metrics"
+              },
+              "editorMode": "code",
+              "exemplar": false,
+              "expr": "topk(7,histogram_quantile(0.50, sum(rate(traces_span_metrics_duration_milliseconds_bucket{service_name=~\"$service\", span_name=~\"$span_name\"}[$__rate_interval])) by (le,service_name)))",
+              "format": "time_series",
+              "hide": true,
+              "instant": false,
+              "interval": "",
+              "legendFormat": "{{service_name}}-quantile_0.50",
+              "range": true,
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "webstore-metrics"
+              },
+              "editorMode": "code",
+              "exemplar": false,
+              "expr": "topk(7,histogram_quantile(0.95, sum(rate(traces_span_metrics_duration_milliseconds_bucket{service_name=~\"$service\", span_name=~\"$span_name\"}[$__range])) by (le,service_name)))",
+              "hide": false,
+              "instant": true,
+              "interval": "",
+              "legendFormat": "{{service_name}}",
+              "range": false,
+              "refId": "B"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "webstore-metrics"
+              },
+              "editorMode": "code",
+              "exemplar": false,
+              "expr": "histogram_quantile(0.99, sum(rate(traces_span_metrics_duration_milliseconds_bucket{service_name=~\"$service\", span_name=~\"$span_name\"}[$__rate_interval])) by (le,service_name))",
+              "hide": true,
+              "interval": "",
+              "legendFormat": "quantile99",
+              "range": true,
+              "refId": "C"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "webstore-metrics"
+              },
+              "editorMode": "code",
+              "exemplar": false,
+              "expr": "histogram_quantile(0.999, sum(rate(traces_span_metrics_duration_milliseconds_bucket{service_name=~\"$service\", span_name=~\"$span_name\"}[$__rate_interval])) by (le,service_name))",
+              "hide": true,
+              "interval": "",
+              "legendFormat": "quantile999",
+              "range": true,
+              "refId": "D"
+            }
+          ],
+          "title": "Top 3x3 - Service Latency - quantile95",
+          "type": "gauge"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "continuous-BlYlRd"
+              },
+              "decimals": 2,
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "super-light-blue",
+                    "value": 1
+                  },
+                  {
+                    "color": "#EAB839",
+                    "value": 2
+                  },
+                  {
+                    "color": "red",
+                    "value": 10
+                  }
+                ]
+              },
+              "unit": "reqps"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 13,
+            "w": 12,
+            "x": 12,
+            "y": 3
+          },
+          "id": 4,
+          "interval": "5m",
+          "options": {
+            "displayMode": "lcd",
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": false
+            },
+            "maxVizHeight": 300,
+            "minVizHeight": 10,
+            "minVizWidth": 0,
+            "namePlacement": "auto",
+            "orientation": "horizontal",
+            "reduceOptions": {
+              "calcs": [
+                "mean"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "showUnfilled": true,
+            "sizing": "auto",
+            "text": {},
+            "valueMode": "color"
+          },
+          "pluginVersion": "11.4.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "webstore-metrics"
+              },
+              "editorMode": "code",
+              "exemplar": false,
+              "expr": "topk(7,sum by (service_name) (rate(traces_span_metrics_calls_total{service_name=~\"$service\", span_name=~\"$span_name\"}[$__range])))",
+              "format": "time_series",
+              "instant": true,
+              "interval": "",
+              "legendFormat": "{{service_name}}",
+              "range": false,
+              "refId": "A"
+            }
+          ],
+          "title": "Top 7 Services Mean Rate over Range",
+          "type": "bargauge"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "continuous-reds"
+              },
+              "decimals": 4,
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "#EAB839",
+                    "value": 1
+                  },
+                  {
+                    "color": "red",
+                    "value": 15
+                  }
+                ]
+              },
+              "unit": "reqps"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 12,
+            "x": 12,
+            "y": 16
+          },
+          "id": 15,
+          "interval": "5m",
+          "options": {
+            "displayMode": "lcd",
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": false
+            },
+            "maxVizHeight": 300,
+            "minVizHeight": 10,
+            "minVizWidth": 0,
+            "namePlacement": "auto",
+            "orientation": "vertical",
+            "reduceOptions": {
+              "calcs": [
+                "mean"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "showUnfilled": true,
+            "sizing": "auto",
+            "text": {},
+            "valueMode": "color"
+          },
+          "pluginVersion": "11.4.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "webstore-metrics"
+              },
+              "editorMode": "code",
+              "exemplar": false,
+              "expr": "topk(7,sum(rate(traces_span_metrics_calls_total{status_code=\"STATUS_CODE_ERROR\",service_name=~\"$service\", span_name=~\"$span_name\"}[$__range])) by (service_name))",
+              "instant": true,
+              "interval": "",
+              "legendFormat": "{{service_name}}",
+              "range": false,
+              "refId": "A"
+            }
+          ],
+          "title": "Top 7 Services Mean ERROR Rate over Range",
+          "type": "bargauge"
+        },
+        {
+          "collapsed": false,
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 23
+          },
+          "id": 14,
+          "panels": [],
+          "title": "span_names Level - Throughput",
+          "type": "row"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "description": "",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "custom": {
+                "align": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "inspect": false
+              },
+              "decimals": 2,
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "reqps"
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "bRate"
+                },
+                "properties": [
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "mode": "lcd",
+                      "type": "gauge"
+                    }
+                  },
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "continuous-BlYlRd"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "eRate"
+                },
+                "properties": [
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "mode": "lcd",
+                      "type": "gauge"
+                    }
+                  },
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "continuous-RdYlGr"
+                    }
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Error Rate"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 663
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Rate"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width",
+                    "value": 667
+                  }
+                ]
+              },
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Service"
+                },
+                "properties": [
+                  {
+                    "id": "custom.width"
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 11,
+            "w": 24,
+            "x": 0,
+            "y": 24
+          },
+          "id": 22,
+          "interval": "5m",
+          "options": {
+            "cellHeight": "sm",
+            "footer": {
+              "countRows": false,
+              "fields": "",
+              "reducer": [
+                "sum"
+              ],
+              "show": false
+            },
+            "showHeader": true,
+            "sortBy": []
+          },
+          "pluginVersion": "11.4.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "webstore-metrics"
+              },
+              "exemplar": false,
+              "expr": "topk(7, sum(rate(traces_span_metrics_calls_total{service_name=~\"$service\", span_name=~\"$span_name\"}[$__range])) by (span_name,service_name)) ",
+              "format": "table",
+              "instant": true,
+              "interval": "",
+              "legendFormat": "",
+              "refId": "Rate"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "webstore-metrics"
+              },
+              "exemplar": false,
+              "expr": "topk(7, sum(rate(traces_span_metrics_calls_total{status_code=\"STATUS_CODE_ERROR\",service_name=~\"$service\", span_name=~\"$span_name\"}[$__range])) by (span_name,service_name))",
+              "format": "table",
+              "hide": false,
+              "instant": true,
+              "interval": "",
+              "legendFormat": "",
+              "refId": "Error Rate"
+            }
+          ],
+          "title": "Top 7 span_names and Errors  (APM Table)",
+          "transformations": [
+            {
+              "id": "seriesToColumns",
+              "options": {
+                "byField": "span_name"
+              }
+            },
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "Time 1": true,
+                  "Time 2": true
+                },
+                "indexByName": {},
+                "renameByName": {
+                  "Value #Error Rate": "Error Rate",
+                  "Value #Rate": "Rate",
+                  "service_name 1": "Rate in Service",
+                  "service_name 2": "Error Rate in Service"
+                }
+              }
+            },
+            {
+              "id": "calculateField",
+              "options": {
+                "alias": "bRate",
+                "mode": "reduceRow",
+                "reduce": {
+                  "include": [
+                    "Rate"
+                  ],
+                  "reducer": "sum"
+                }
+              }
+            },
+            {
+              "id": "calculateField",
+              "options": {
+                "alias": "eRate",
+                "mode": "reduceRow",
+                "reduce": {
+                  "include": [
+                    "Error Rate"
+                  ],
+                  "reducer": "sum"
+                }
+              }
+            },
+            {
+              "id": "organize",
+              "options": {
+                "excludeByName": {
+                  "Error Rate": true,
+                  "Rate": true,
+                  "bRate": false
+                },
+                "indexByName": {
+                  "Error Rate": 4,
+                  "Error Rate in Service": 6,
+                  "Rate": 1,
+                  "Rate in Service": 5,
+                  "bRate": 2,
+                  "eRate": 3,
+                  "span_name": 0
+                },
+                "renameByName": {
+                  "Rate in Service": "Service",
+                  "bRate": "Rate",
+                  "eRate": "Error Rate",
+                  "span_name": "span_name Name"
+                }
+              }
+            },
+            {
+              "id": "sortBy",
+              "options": {
+                "fields": {},
+                "sort": [
+                  {
+                    "desc": true,
+                    "field": "Rate"
+                  }
+                ]
+              }
+            }
+          ],
+          "type": "table"
+        },
+        {
+          "collapsed": false,
+          "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 35
+          },
+          "id": 20,
+          "panels": [],
+          "title": "span_name Level - Latencies",
+          "type": "row"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "continuous-BlYlRd"
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "blue"
+                  },
+                  {
+                    "color": "green",
+                    "value": 2
+                  },
+                  {
+                    "color": "#EAB839",
+                    "value": 64
+                  },
+                  {
+                    "color": "orange",
+                    "value": 128
+                  },
+                  {
+                    "color": "red",
+                    "value": 256
+                  }
+                ]
+              },
+              "unit": "ms"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 13,
+            "w": 12,
+            "x": 0,
+            "y": 36
+          },
+          "id": 25,
+          "interval": "5m",
+          "options": {
+            "minVizHeight": 75,
+            "minVizWidth": 75,
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "showThresholdLabels": false,
+            "showThresholdMarkers": true,
+            "sizing": "auto"
+          },
+          "pluginVersion": "11.3.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "webstore-metrics"
+              },
+              "editorMode": "code",
+              "exemplar": false,
+              "expr": "topk(7,histogram_quantile(0.50, sum(rate(traces_span_metrics_duration_milliseconds_bucket{service_name=~\"$service\", span_name=~\"$span_name\"}[$__rate_interval])) by (le,service_name)))",
+              "format": "time_series",
+              "hide": true,
+              "instant": false,
+              "interval": "",
+              "legendFormat": "{{service_name}}-quantile_0.50",
+              "range": true,
+              "refId": "A"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "webstore-metrics"
+              },
+              "editorMode": "code",
+              "exemplar": false,
+              "expr": "topk(7,histogram_quantile(0.95, sum(rate(traces_span_metrics_duration_milliseconds_bucket{service_name=~\"$service\", span_name=~\"$span_name\"}[$__range])) by (le,span_name)))",
+              "hide": false,
+              "instant": true,
+              "interval": "",
+              "legendFormat": "{{span_name}}",
+              "range": false,
+              "refId": "B"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "webstore-metrics"
+              },
+              "editorMode": "code",
+              "exemplar": false,
+              "expr": "histogram_quantile(0.99, sum(rate(traces_span_metrics_duration_milliseconds_bucket{service_name=~\"$service\", span_name=~\"$span_name\"}[$__rate_interval])) by (le,service_name))",
+              "hide": true,
+              "interval": "",
+              "legendFormat": "quantile99",
+              "range": true,
+              "refId": "C"
+            },
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "webstore-metrics"
+              },
+              "editorMode": "code",
+              "exemplar": false,
+              "expr": "histogram_quantile(0.999, sum(rate(traces_span_metrics_duration_milliseconds_bucket{service_name=~\"$service\", span_name=~\"$span_name\"}[$__rate_interval])) by (le,service_name))",
+              "hide": true,
+              "interval": "",
+              "legendFormat": "quantile999",
+              "range": true,
+              "refId": "D"
+            }
+          ],
+          "title": "Top 3x3 - span_name Latency - quantile95",
+          "type": "gauge"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "continuous-BlYlRd"
+              },
+              "decimals": 2,
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "ms"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 13,
+            "w": 12,
+            "x": 12,
+            "y": 36
+          },
+          "id": 10,
+          "interval": "5m",
+          "options": {
+            "displayMode": "lcd",
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": false
+            },
+            "maxVizHeight": 300,
+            "minVizHeight": 10,
+            "minVizWidth": 0,
+            "namePlacement": "auto",
+            "orientation": "horizontal",
+            "reduceOptions": {
+              "calcs": [
+                "mean"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "showUnfilled": true,
+            "sizing": "auto",
+            "valueMode": "color"
+          },
+          "pluginVersion": "11.3.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "webstore-metrics"
+              },
+              "editorMode": "code",
+              "exemplar": false,
+              "expr": "topk(7, sum by (span_name,service_name)(increase(traces_span_metrics_duration_milliseconds_sum{service_name=~\"${service}\", span_name=~\"$span_name\"}[5m]) / increase(traces_span_metrics_duration_milliseconds_count{service_name=~\"${service}\",span_name=~\"$span_name\"}[5m\n])))",
+              "instant": true,
+              "interval": "",
+              "legendFormat": "{{span_name}} [{{service_name}}]",
+              "range": false,
+              "refId": "A"
+            }
+          ],
+          "title": "Top 7 Highest Endpoint Latencies  Mean Over Range ",
+          "type": "bargauge"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "webstore-metrics"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "barWidthFactor": 0.6,
+                "drawStyle": "line",
+                "fillOpacity": 15,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "insertNulls": false,
+                "lineInterpolation": "smooth",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "ms"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 12,
+            "w": 24,
+            "x": 0,
+            "y": 49
+          },
+          "id": 16,
+          "interval": "5m",
+          "options": {
+            "legend": {
+              "calcs": [
+                "mean",
+                "logmin",
+                "max",
+                "delta"
+              ],
+              "displayMode": "table",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "11.3.0",
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "webstore-metrics"
+              },
+              "editorMode": "code",
+              "exemplar": true,
+              "expr": "topk(7,sum by (span_name,service_name)(increase(traces_span_metrics_duration_milliseconds_sum{service_name=~\"$service\", span_name=~\"$span_name\"}[$__rate_interval]) / increase(traces_span_metrics_duration_milliseconds_count{service_name=~\"$service\", span_name=~\"$span_name\"}[$__rate_interval])))",
+              "instant": false,
+              "interval": "",
+              "legendFormat": "[{{service_name}}]  {{span_name}}",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Top 7 Latencies Over Range ",
+          "type": "timeseries"
+        }
+      ],
+      "preload": false,
+      "refresh": "5m",
+      "schemaVersion": 40,
+      "tags": [],
+      "templating": {
+        "list": [
+          {
+            "allValue": ".*",
+            "current": {
+              "text": "All",
+              "value": "$__all"
+            },
+            "datasource": {
+              "type": "prometheus",
+              "uid": "webstore-metrics"
+            },
+            "definition": "query_result(count by (service_name)(count_over_time(traces_span_metrics_calls_total[$__range])))",
+            "includeAll": true,
+            "multi": true,
+            "name": "service",
+            "options": [],
+            "query": {
+              "query": "query_result(count by (service_name)(count_over_time(traces_span_metrics_calls_total[$__range])))",
+              "refId": "StandardVariableQuery"
+            },
+            "refresh": 2,
+            "regex": "/.*service_name=\"(.*)\".*/",
+            "sort": 1,
+            "type": "query"
+          },
+          {
+            "allValue": ".*",
+            "current": {
+              "text": "All",
+              "value": "$__all"
+            },
+            "datasource": {
+              "type": "prometheus",
+              "uid": "webstore-metrics"
+            },
+            "definition": "query_result(sum ({__name__=~\".*traces_span_metrics_calls_total\",service_name=~\"$service\"})  by (span_name))",
+            "includeAll": true,
+            "multi": true,
+            "name": "span_name",
+            "options": [],
+            "query": {
+              "query": "query_result(sum ({__name__=~\".*traces_span_metrics_calls_total\",service_name=~\"$service\"})  by (span_name))",
+              "refId": "StandardVariableQuery"
+            },
+            "refresh": 2,
+            "regex": "/.*span_name=\"(.*)\".*/",
+            "type": "query"
+          }
+        ]
+      },
+      "time": {
+        "from": "now-15m",
+        "to": "now"
+      },
+      "timepicker": {},
+      "timezone": "",
+      "title": "Spanmetrics Demo Dashboard",
+      "uid": "W2gX2zHVk48",
+      "version": 2,
+      "weekStart": ""
+    }
+---
