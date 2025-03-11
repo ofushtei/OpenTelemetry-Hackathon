@@ -1,5 +1,5 @@
 # OpenTelemetry Challenge
- Repo for OTel Challenge for AppDynamics PS EMEA
+Repo for OpenTelemetry Challenge for AppDynamics PS EMEA & Observability Friday Challenges community
 
 ## How to run this?
 1. Create a namespace you'll use
