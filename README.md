@@ -34,7 +34,7 @@ kubectl apply -f application.yaml -n <your-namespace>
 6. Deploy Jaeger to your newly created namespace
 With Jaager you can start working on the application instrumentation
 ```
-kubectl apply -f application.yaml -n <your-namespace>
+kubectl apply -f jaeger.yaml -n <your-namespace>
 ```
 7. Once the application is fully instrumented, deploy Grafana, Prometheus and Openseeach else with your namespace
 ```
