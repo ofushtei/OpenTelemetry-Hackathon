@@ -45,3 +45,5 @@ kubectl apply -f jaeger.yaml -n <your-namespace>
 ```
 kubectl apply -f <file-name>.yaml -n <your-namespace>
 ```
+When deploying Grafana, make sure you have a correct namespace in lines 134 and 167
+These are essential for proper data collection

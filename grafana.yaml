@@ -131,7 +131,7 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: grafana
-    namespace: otel-demo-test
+    namespace: <your-namespace>
 roleRef:
   kind: ClusterRole
   name: grafana-clusterrole
@@ -164,7 +164,7 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: grafana
-  namespace: otel-demo-test
+  namespace: <your-namespace>
 ---
 # Source: opentelemetry-demo/charts/grafana/templates/service.yaml
 apiVersion: v1
