@@ -26,17 +26,22 @@ subjects:
 ```
 kubectl apply -f cluster-prep.yaml
 ```
-5. Deploy application to your newly created namespace
+5. Deploy application to the newly created namespace
 This will deploy all necessary components
 ```
 kubectl apply -f application.yaml -n <your-namespace>
 ```
-6. Deploy Jaeger to your newly created namespace
+6. Deploy OpenTelemetry collecttor to you namespace
+This will deploy all necessary components
+```
+kubectl apply -f otel-collector.yaml -n <your-namespace>
+```
+7. Deploy Jaeger to your namespace
 With Jaager you can start working on the application instrumentation
 ```
 kubectl apply -f jaeger.yaml -n <your-namespace>
 ```
-7. Once the application is fully instrumented, deploy Grafana, Prometheus and Openseeach else with your namespace
+8. Once the application is fully instrumented, deploy Grafana, Prometheus and Openseeach else with your namespace
 ```
 kubectl apply -f <file-name>.yaml -n <your-namespace>
 ```
