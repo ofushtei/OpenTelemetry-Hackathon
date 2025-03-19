@@ -1054,6 +1054,15 @@ spec:
           env:
             - name: FLAGD_METRICS_EXPORTER
               value: otel
+            - name: OTEL_COLLECTOR_NAME
+              value: otel-collector
+            - name: FLAGD_OTEL_COLLECTOR_URI
+              value: $(OTEL_COLLECTOR_NAME):4317
+            - name: OTEL_SERVICE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: metadata.labels['app.kubernetes.io/component']
           resources:
             limits:
               memory: 75Mi
@@ -1072,7 +1081,7 @@ spec:
               value: otel
           resources:
             limits:
-              memory: 75Mi
+              memory: 150Mi
           volumeMounts:
             - mountPath: /app/data
               name: config-rw
@@ -1388,6 +1397,24 @@ spec:
               value: "8081"
             - name: OTEL_COLLECTOR_PORT_GRPC
               value: "4317"
+            - name: OTEL_SERVICE_NAME
+              valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.labels['app.kubernetes.io/component']
+            - name: OTEL_K8S_NAMESPACE
+              valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+            - name: OTEL_COLLECTOR_NAME
+              value: otel-collector
+            - name: OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE
+              value: cumulative
+            - name: OTEL_COLLECTOR_HOST
+              value: $(OTEL_COLLECTOR_NAME)
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: service.name=$(OTEL_SERVICE_NAME), service.namespace=$(OTEL_K8S_NAMESPACE), service.version=2.0.1
           resources:
             limits:
               memory: 50Mi
