@@ -37,7 +37,7 @@ This will deploy all necessary components
 kubectl apply -f otel-collector.yaml -n <your-namespace>
 ```
 7. Deploy Jaeger to your namespace
-With Jaager you can start working on the application instrumentation
+With Jaeger you can start working on the application instrumentation
 ```
 kubectl apply -f jaeger.yaml -n <your-namespace>
 ```
