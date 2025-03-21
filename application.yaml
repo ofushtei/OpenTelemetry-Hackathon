@@ -907,6 +907,10 @@ spec:
               value: flagd
             - name: FLAGD_PORT
               value: "8013"
+            - name: GOMEMLIMIT
+              valueFrom:
+                resourceFieldRef:
+                  resource: limits.memory
             # Instrumentation goes here
             
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
@@ -1687,6 +1691,10 @@ spec:
               value: flagd
             - name: FLAGD_PORT
               value: "8013"
+            - name: GOMEMLIMIT
+              valueFrom:
+                resourceFieldRef:
+                  resource: limits.memory
             # Instrumentation goes here
             
             - name: OTEL_EXPORTER_OTLP_ENDPOINT

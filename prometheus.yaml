@@ -506,6 +506,11 @@ spec:
             timeoutSeconds: 10
             failureThreshold: 3
             successThreshold: 1
+          env:
+          - name: GOMEMLIMIT
+            valueFrom:
+              resourceFieldRef:
+                resource: limits.memory
           resources:
             limits:
               memory: 300Mi
