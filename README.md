@@ -31,13 +31,13 @@ This will deploy all necessary components
 ```
 kubectl apply -f application.yaml -n <your-namespace>
 ```
-6. Deploy OpenTelemetry collecttor to you namespace
+6. Deploy OpenTelemetry collecttor to you namespace<br/>
 This will deploy all necessary components
 ```
 kubectl apply -f otel-collector.yaml -n <your-namespace>
 ```
-7. Deploy Jaeger to your namespace
-With Jaager you can start working on the application instrumentation
+7. Deploy Jaeger to your namespace<br/>
+With Jaeger you can start working on the application instrumentation
 ```
 kubectl apply -f jaeger.yaml -n <your-namespace>
 ```
@@ -45,5 +45,6 @@ kubectl apply -f jaeger.yaml -n <your-namespace>
 ```
 kubectl apply -f <file-name>.yaml -n <your-namespace>
 ```
-When deploying Grafana, make sure you have a correct namespace in lines 134 and 167
-These are essential for proper data collection
+When deploying Grafana, make sure you have a correct namespace in lines 134 and 167<br/>
+And when deploying Prometheus, make sure you have a correct namespace in line 411<br/>
+These are essential for the proper data collection
